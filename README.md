@@ -1,6 +1,6 @@
 # ElitePlay Web
 
-Production Next.js (App Router + TypeScript) landing page for **ElitePlay Launcher** — self-hosted assets, zero Framer runtime dependency, ready for VPS deployment.
+Production Next.js (App Router + TypeScript) landing page for **ElitePlay Launcher** — self-hosted assets, zero Framer runtime dependency, ready for VPS deployment with Docker + Caddy.
 
 ## Local Development
 
@@ -9,50 +9,78 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Buka `http://localhost:3000`.
 
-## Verify & Production Build
+## Test & Build Lokal
 
 ```bash
 npm test
 npm run build
-npm start
 ```
 
 ## Konfigurasi Link & Domain
 
-Edit satu file saja di `src/config/site.ts` untuk mengisi domain asli, link Shopee, WhatsApp CS, Discord, dan Download Launcher.
+Edit `src/config/site.ts` untuk mengisi domain asli, link Shopee, WhatsApp CS, Discord, dan Download Launcher.
 
-## Deploy di VPS (`nav-bot`)
+---
 
-### Opsi 1 — PM2 (paling ringan kalau Node.js & PM2 sudah terpasang di VPS)
+## Deploy Pertama Kali di VPS (`nav-bot`)
+
+### 1. Pastikan Docker terpasang di VPS (Ubuntu/Debian)
+
+```bash
+curl -fsSL https://get.docker.com | sh
+docker compose version
+```
+
+*(Lewati langkah ini jika `docker compose version` sudah muncul.)*
+
+### 2. Clone repo di VPS
 
 ```bash
 git clone https://github.com/zujk-code/eliteplayweb.git
 cd eliteplayweb
-npm ci
-npm run build
-pm2 start .next/standalone/server.js --name eliteplay-web -- --port 3000
-pm2 save
 ```
 
-*(Pastikan `cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public` dijalankan sebelum `pm2 start`, atau gunakan `pm2 start npm --name eliteplay-web -- start` agar langsung memakai `next start` di port `3000`.)*
+### 3. Pilih mode tes IP atau langsung domain HTTPS
 
-### Opsi 2 — Docker
+- **Tes cepat pakai IP VPS dulu (HTTP port 80):** tidak perlu buat `.env`, langsung jalankan:
+  ```bash
+  docker compose up -d --build
+  ```
+  Lalu buka `http://IP-VPS-KAMU`.
+
+- **Langsung pakai Domain + HTTPS gratis otomatis (Let's Encrypt):**
+  1. Arahkan DNS **A Record** domainmu (`@`) ke IP VPS `nav-bot`.
+  2. Buat file `.env` di folder `eliteplayweb` pada VPS:
+     ```bash
+     echo "SITE_DOMAIN=domainkamu.com" > .env
+     ```
+  3. Jalankan:
+     ```bash
+     docker compose up -d --build
+     ```
+  Caddy otomatis mengurus sertifikat SSL HTTPS dan mengarahkan `https://domainkamu.com` ke container Next.js.
+
+---
+
+## Cara Update Website Nanti
+
+1. Edit di PC lokal (`G:\eliteplay website`), lalu push ke GitHub:
+   ```powershell
+   git add -A
+   git commit -m "update konten"
+   git push
+   ```
+2. Masuk SSH ke VPS `nav-bot`, lalu jalankan 1 baris ini di folder `eliteplayweb`:
+   ```bash
+   git pull && docker compose up -d --build
+   ```
+
+## Cek Status & Log di VPS
 
 ```bash
-docker build -t eliteplay-web .
-docker run -d --name eliteplay-web --restart unless-stopped -p 3000:3000 eliteplay-web
+docker compose ps
+docker compose logs -f caddy
+docker compose logs -f web
 ```
-
-### HTTPS Reverse Proxy (Caddy — otomatis SSL Let's Encrypt)
-
-Tambahkan di `/etc/caddy/Caddyfile`:
-
-```caddyfile
-domainkamu.com {
-    reverse_proxy 127.0.0.1:3000
-}
-```
-
-Lalu reload: `sudo systemctl reload caddy`.
