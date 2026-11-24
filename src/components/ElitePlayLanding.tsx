@@ -20,7 +20,7 @@ const beforeProcess = `
         <nav id="elite-nav-links" aria-label="Sections" class="navigation-row-2">
           <a href="#process" class="nav-link-9">How It Works</a>
           <a href="#features" class="nav-link-9">Features</a>
-          <a href="#use-cases" class="nav-link-9">Catalog</a>
+          <a href="/catalog" class="nav-link-9">Catalog</a>
           <a href="#pricing" class="nav-link-9">Pricing</a>
           <a href="#testimoni" class="nav-link-9">Testimoni</a>
         </nav>
@@ -101,7 +101,7 @@ const beforeProcess = `
             <path class="hero-current lower" d="M8 49 H24 C72 49 77 26 139 26 H158" pathLength="100" style="--phase:-4.5s"/>
           </svg>
           <div class="hero-actions">
-            <a class="hero-panel z-action" href="#use-cases"><span class="z-roll"><span class="text-10" data-label="Cek Katalog">Cek Katalog</span></span></a>
+            <a class="hero-panel z-action" href="/catalog"><span class="z-roll"><span class="text-10" data-label="Cek Katalog">Cek Katalog</span></span></a>
             <button class="hero-panel launcher-download" type="button" disabled title="Tautan unduhan belum tersedia">Download Launcher</button>
           </div>
           <svg class="hero-route hero-route-east" viewBox="0 0 160 52" preserveAspectRatio="none" aria-hidden="true" focusable="false">
@@ -251,8 +251,8 @@ const afterProcess = `<section id="features" class="ep-features" data-backdrop="
 </div></section>
     <section id="use-cases" class="catalog-section" aria-labelledby="catalog-title"><h2 id="catalog-title">Katalog Game</h2><div class="catalog-grid"><figure><img class="game-cover" width="600" height="900" alt="Phantom Blade Zero" src="/images/catalog/game-01.jpg"></figure><figure><img class="game-cover" width="600" height="900" alt="Onimusha: Way of the Sword" src="/images/catalog/game-02.jpg"></figure><figure><img class="game-cover" width="600" height="900" alt="Resident Evil Requiem" src="/images/catalog/game-03.jpg"></figure><figure><img class="game-cover" width="600" height="900" alt="EA SPORTS FC 27" src="/images/catalog/game-04.jpg"></figure><figure><img class="game-cover" width="600" height="900" alt="Assassin's Creed Black Flag Resynced" decoding="async" src="/images/catalog/game-05.jpg"></figure><figure><img class="game-cover" width="600" height="900" alt="Crimson Desert Enhanced" decoding="async" src="/images/catalog/game-06.jpg"></figure><figure><img class="game-cover" width="600" height="900" alt="The Blood of Dawnwalker" decoding="async" src="/images/catalog/game-07.jpg"></figure><figure><img class="game-cover" width="600" height="900" alt="FINAL FANTASY RESONANCE" decoding="async" src="/images/catalog/game-08.jpg"></figure></div><div class="catalog-invite">
         <p>Ingin menjelajahi daftar game lengkap?</p>
-        <a class="catalog-browse" role="link" aria-disabled="true" aria-describedby="catalog-availability">Jelajahi daftar game <span aria-hidden="true">↗</span></a>
-        <small id="catalog-availability">Katalog lengkap segera hadir.</small>
+        <a class="catalog-browse" href="/catalog">Jelajahi daftar game <span aria-hidden="true">↗</span></a>
+        <small id="catalog-availability">217.000+ game Steam — cari, filter &amp; cek detail langsung.</small>
       </div></section>
     <section id="pricing" data-backdrop="pricing" aria-labelledby="pricing-title" class="pricing-section">
       <div class="pricing-intro">

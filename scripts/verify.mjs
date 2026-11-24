@@ -19,14 +19,17 @@ function walk(dir) {
 const files = walk(SRC)
 assert.ok(files.length >= 6, `Expected >= 6 source files, found ${files.length}`)
 
-// 1. Zero Framer runtime imports or external Framer/Steam image CDN links
+// 1. Zero Framer runtime imports or external Framer links; zero Steam CDN refs in static landing files
 const imageRefs = new Set()
+const ALLOW_STEAM_CDN = new Set(["src/lib/steam-catalog.ts"])
 for (const file of files) {
-  const rel = path.relative(ROOT, file)
+  const rel = path.relative(ROOT, file).replace(/\\/g, "/")
   const text = fs.readFileSync(file, "utf8")
   assert.equal(/from\s+["']framer["']/.test(text), false, `Framer import left in ${rel}`)
   assert.equal(/framerusercontent\.com/i.test(text), false, `Framer CDN URL left in ${rel}`)
-  assert.equal(/steamstatic\.com/i.test(text), false, `External Steam CDN URL left in ${rel}`)
+  if (!ALLOW_STEAM_CDN.has(rel)) {
+    assert.equal(/steamstatic\.com/i.test(text), false, `External Steam CDN URL left in ${rel}`)
+  }
   assert.equal(/data:font\//i.test(text), false, `Base64 font bloat left in ${rel}`)
 
   // Security: every window.open must include noopener,noreferrer
@@ -72,4 +75,15 @@ assert.ok(fs.existsSync(path.join(SRC, "app", "icon.png")), "Missing src/app/ico
   assert.equal(cur, 360, `Smooth scroll did not settle on target (got ${cur})`)
 }
 
-console.log(`PASS: ${files.length} source files clean, ${imageRefs.size} self-hosted images verified, 0 Framer refs, scroll physics monotonic.`)
+// 5. Steam Catalog routes and API proxies exist
+for (const reqFile of [
+  "src/app/catalog/page.tsx",
+  "src/app/catalog/[id]/page.tsx",
+  "src/app/api/catalog/search/route.ts",
+  "src/app/api/catalog/filters/route.ts",
+  "src/app/api/catalog/suggestions/route.ts",
+]) {
+  assert.ok(fs.existsSync(path.join(ROOT, reqFile)), `Missing catalog file: ${reqFile}`)
+}
+
+console.log(`PASS: ${files.length} source files clean, ${imageRefs.size} self-hosted images verified, 0 Framer refs, catalog routes verified, scroll physics monotonic.`)

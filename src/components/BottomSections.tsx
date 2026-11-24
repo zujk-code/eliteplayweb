@@ -1115,7 +1115,7 @@ export default function ElitePlayBottomSections({
                             <h3 className="ep-ft-head">Produk</h3>
                             <a href="#process" className="ep-ft-link">Cara Kerja</a>
                             <a href="#features" className="ep-ft-link">Fitur</a>
-                            <a href="#use-cases" className="ep-ft-link">Katalog Game</a>
+                            <a href="/catalog" className="ep-ft-link">Katalog Game</a>
                             <a href="#pricing" className="ep-ft-link">Harga</a>
                             <a href="#faq" className="ep-ft-link">FAQ</a>
                         </div>
