@@ -228,6 +228,8 @@ interface SteamBrowseMeta {
   logoUrl: string | null
   headerUrl: string | null
   launcher: ThirdPartyLauncher | null
+  isFree: boolean
+  isOnlinePvpOrMmoOnly: boolean
   fetchedAt: number
 }
 
@@ -314,12 +316,29 @@ interface RawSteamStoreAssets {
 
 interface RawSteamStoreItem {
   appid?: number
+  is_free?: boolean
+  categories?: {
+    supported_player_categoryids?: number[]
+  }
   assets?: RawSteamStoreAssets
   assets_without_overrides?: RawSteamStoreAssets
   basic_info?: {
     publishers?: { name?: string }[]
     developers?: { name?: string }[]
   }
+}
+
+// Official Steam player category IDs
+const CAT_SINGLE_PLAYER = 2
+const CAT_MMO = 20
+const CAT_ONLINE_PVP = 36
+
+function isPaidOnlinePvpOrMmoOnly(isFree: boolean, playerCategoryIds: number[]): boolean {
+  if (isFree || playerCategoryIds.length === 0) return false
+  const hasSinglePlayer = playerCategoryIds.includes(CAT_SINGLE_PLAYER)
+  const hasOnlinePvpOrMmo =
+    playerCategoryIds.includes(CAT_ONLINE_PVP) || playerCategoryIds.includes(CAT_MMO)
+  return !hasSinglePlayer && hasOnlinePvpOrMmo
 }
 
 async function fetchSteamStoreBatch(appIds: string[]): Promise<Map<string, SteamBrowseMeta>> {
@@ -382,6 +401,8 @@ async function fetchSteamStoreBatch(appIds: string[]): Promise<Map<string, Steam
         const portraitUrl =
           rawCapsule && !isFakeValveBlur ? buildSteamStoreAssetUrl(fmt, rawCapsule) : null
 
+        const isFree = Boolean(item.is_free)
+        const playerCats = item.categories?.supported_player_categoryids ?? []
         const meta: SteamBrowseMeta = {
           portraitUrl,
           hasRealPortrait: Boolean(portraitUrl),
@@ -395,6 +416,8 @@ async function fetchSteamStoreBatch(appIds: string[]): Promise<Map<string, Steam
           ),
           headerUrl: buildSteamStoreAssetUrl(fmt, a?.header || aNo?.header),
           launcher: detectLauncherFromText(publishers, developers),
+          isFree,
+          isOnlinePvpOrMmoOnly: isPaidOnlinePvpOrMmoOnly(isFree, playerCats),
           fetchedAt: now,
         }
 
@@ -436,6 +459,8 @@ interface RawCatalogEdge {
 export async function searchSteamCatalog(query: SteamCatalogQuery): Promise<SteamCatalogResponse> {
   const take = Math.min(40, Math.max(5, query.take ?? CATALOG_PAGE_SIZE))
   const skip = Math.max(0, query.skip ?? 0)
+  // Over-fetch slightly so filtering out paid Online PvP/MMO-only titles still fills a full page.
+  const fetchTake = Math.min(50, take + 16)
 
   const payload = {
     title: query.title.trim(),
@@ -449,7 +474,7 @@ export async function searchSteamCatalog(query: SteamCatalogQuery): Promise<Stea
     protondbSupportBadges: [] as string[],
     deckCompatibility: [] as string[],
     releaseYear: query.releaseYear,
-    take,
+    take: fetchTake,
     skip,
   }
 
@@ -463,20 +488,24 @@ export async function searchSteamCatalog(query: SteamCatalogQuery): Promise<Stea
     getDenuvoMap(),
   ])
 
-  const filtered = (raw?.edges ?? [])
-    .filter((item): item is RawCatalogEdge & { objectId: string; title: string } =>
+  const candidates = (raw?.edges ?? []).filter(
+    (item): item is RawCatalogEdge & { objectId: string; title: string } =>
       Boolean(
         item?.objectId &&
           item?.title &&
           (!item.shop || item.shop === "steam") &&
           isValidSteamAppId(item.objectId),
       ),
-    )
-    .slice(0, take)
+  )
 
-  const browseMap = await fetchSteamStoreBatch(filtered.map((item) => item.objectId))
+  const browseMap = await fetchSteamStoreBatch(candidates.map((item) => item.objectId))
 
-  const edges: SteamCatalogGame[] = filtered.map((item) => {
+  const visible = candidates.filter((item) => {
+    const browse = browseMap.get(item.objectId)
+    return !browse?.isOnlinePvpOrMmoOnly
+  })
+
+  const edges: SteamCatalogGame[] = visible.slice(0, take).map((item) => {
     const denuvo = denuvoMap.get(item.objectId)?.status ?? null
     const browse = browseMap.get(item.objectId)
     const launcher = browse?.launcher ?? detectLauncherFromSearchVector(item.searchVector)
@@ -495,10 +524,16 @@ export async function searchSteamCatalog(query: SteamCatalogQuery): Promise<Stea
       deckCompatibility: item.deckCompatibility ?? null,
       denuvo,
       launcher,
+      isFree: Boolean(browse?.isFree),
     }
   })
 
-  const total = typeof raw?.count === "number" ? raw.count : edges.length
+  const rawTotal = typeof raw?.count === "number" ? raw.count : edges.length
+  const hiddenInBatch = candidates.length - visible.length
+  // When the entire result set fit inside this single batch, adjust total count accurately.
+  const total =
+    skip === 0 && rawTotal <= fetchTake ? Math.max(0, rawTotal - hiddenInBatch) : rawTotal
+
   const isUnfiltered =
     !query.title.trim() &&
     query.genres.length === 0 &&
@@ -506,8 +541,8 @@ export async function searchSteamCatalog(query: SteamCatalogQuery): Promise<Stea
     query.developers.length === 0 &&
     query.publishers.length === 0 &&
     !query.releaseYear
-  if (isUnfiltered && total > 0) {
-    catalogCountMemo = { at: Date.now(), count: total }
+  if (isUnfiltered && rawTotal > 0) {
+    catalogCountMemo = { at: Date.now(), count: rawTotal }
   }
 
   return {
@@ -521,31 +556,34 @@ export async function getSteamSuggestions(query: string, limit = 6): Promise<Ste
   if (clean.length < 2) return []
 
   const clampedLimit = Math.min(10, Math.max(1, limit))
+  const fetchLimit = Math.min(10, clampedLimit + 4)
   const rows = await fetchJson<
     { title?: string; objectId?: string; shop?: string; iconUrl?: string | null }[]
   >(
     buildHydraUrl("/catalogue/search/suggestions", {
       query: clean,
-      limit: String(clampedLimit),
+      limit: String(fetchLimit),
       shop: "steam",
     }),
     { next: { revalidate: 60 * 30 } },
   )
 
-  const valid = (rows ?? [])
-    .filter((r): r is { title: string; objectId: string; iconUrl?: string | null } =>
+  const valid = (rows ?? []).filter(
+    (r): r is { title: string; objectId: string; iconUrl?: string | null } =>
       Boolean(r?.objectId && r?.title && isValidSteamAppId(r.objectId)),
-    )
-    .slice(0, clampedLimit)
+  )
 
   const browseMap = await fetchSteamStoreBatch(valid.map((r) => r.objectId))
 
-  return valid.map((r) => ({
-    objectId: r.objectId,
-    title: r.title,
-    iconUrl: r.iconUrl ?? null,
-    portraitImageUrl: browseMap.get(r.objectId)?.portraitUrl ?? null,
-  }))
+  return valid
+    .filter((r) => !browseMap.get(r.objectId)?.isOnlinePvpOrMmoOnly)
+    .slice(0, clampedLimit)
+    .map((r) => ({
+      objectId: r.objectId,
+      title: r.title,
+      iconUrl: r.iconUrl ?? null,
+      portraitImageUrl: browseMap.get(r.objectId)?.portraitUrl ?? null,
+    }))
 }
 
 /* ============================================================================
@@ -783,6 +821,13 @@ export async function getSteamGameDetail(appId: string): Promise<SteamGameDetail
     }
   }
 
+  const storeCatIds = (store?.categories ?? []).map((c) => c.id)
+  const isFree = Boolean(store?.is_free || browse?.isFree)
+  const onlineOnly =
+    storeCatIds.length > 0
+      ? isPaidOnlinePvpOrMmoOnly(isFree, storeCatIds)
+      : Boolean(browse?.isOnlinePvpOrMmoOnly)
+
   return {
     objectId: appId,
     title,
@@ -798,7 +843,7 @@ export async function getSteamGameDetail(appId: string): Promise<SteamGameDetail
     languages: parseLanguages(store?.supported_languages),
     controllerSupport: store ? resolveController(store) : "none",
     price: {
-      isFree: Boolean(store?.is_free),
+      isFree,
       finalFormatted: store?.price_overview?.final_formatted ?? null,
       initialFormatted: store?.price_overview?.initial_formatted ?? null,
       discountPercent: store?.price_overview?.discount_percent ?? 0,
@@ -844,5 +889,6 @@ export async function getSteamGameDetail(appId: string): Promise<SteamGameDetail
       detectLauncherFromText(store?.publishers ?? [], store?.developers ?? []) ??
       browse?.launcher ??
       null,
+    onlineOnly,
   }
 }

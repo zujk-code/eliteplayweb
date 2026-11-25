@@ -156,8 +156,19 @@ export default async function GameDetailPage({ params }: { params: Params }) {
         <div className="ep-cat-wrap ep-det-body-grid">
           {/* Left Main Column */}
           <div className="ep-det-col">
-            {/* Denuvo / Third-Party Launcher / ElitePlay Compatibility Banner */}
-            {game.denuvo?.status === "uses" || game.launcher ? (
+            {/* Online-Only / Denuvo / Third-Party Launcher / Free to Play / ElitePlay Compatibility Banner */}
+            {game.onlineOnly ? (
+              <div className="ep-denuvo-banner is-uses">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" style={{ flex: "none", marginTop: 2 }} aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v4m0 4h.01" strokeLinecap="round" />
+                </svg>
+                <div>
+                  <strong>Online PvP / MMO Only.</strong> Game ini membutuhkan koneksi online
+                  penuh ke server resmi dan tidak memiliki mode single-player.
+                </div>
+              </div>
+            ) : game.denuvo?.status === "uses" || game.launcher ? (
               <div className="ep-denuvo-banner is-uses">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ flex: "none", marginTop: 2 }} aria-hidden="true">
                   <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z" />
@@ -176,6 +187,16 @@ export default async function GameDetailPage({ params }: { params: Params }) {
                     ElitePlay Premium
                   </Link>
                   .
+                </div>
+              </div>
+            ) : game.price.isFree ? (
+              <div className="ep-denuvo-banner is-removed">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ flex: "none", marginTop: 2 }} aria-hidden="true">
+                  <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <div>
+                  <strong>Free to Play di Steam.</strong> Game ini gratis dimainkan langsung melalui
+                  akun Steam pribadimu.
                 </div>
               </div>
             ) : game.denuvo?.status === "removed" ? (

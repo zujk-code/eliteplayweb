@@ -27,6 +27,7 @@ export interface SteamCatalogGame {
   deckCompatibility: string | null
   denuvo: DenuvoStatus | null
   launcher: ThirdPartyLauncher | null
+  isFree: boolean
 }
 
 export interface SteamCatalogResponse {
@@ -131,6 +132,7 @@ export interface SteamGameDetail {
     reviewedOn: string | null
   } | null
   launcher: ThirdPartyLauncher | null
+  onlineOnly: boolean
 }
 
 export const CATALOG_PAGE_SIZE = 30

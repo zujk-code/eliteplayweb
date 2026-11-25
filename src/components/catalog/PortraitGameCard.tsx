@@ -44,16 +44,25 @@ export function PortraitGameCard({
       ? "header"
       : "none"
   const [stage, setStage] = React.useState<PosterStage>(initialStage)
+  const imgRef = React.useRef<HTMLImageElement | null>(null)
 
   const portraitSrc = game.portraitImageUrl || steamPortraitUrl(game.objectId)
 
-  const handlePortraitError = () => {
+  const handlePortraitError = React.useCallback(() => {
     setStage(headerSrc ? "header" : "none")
-  }
+  }, [headerSrc])
 
-  const handleHeaderError = () => {
+  const handleHeaderError = React.useCallback(() => {
     setStage("none")
-  }
+  }, [])
+
+  // Catch images that already 404'd during SSR before React attached onError.
+  React.useEffect(() => {
+    const img = imgRef.current
+    if (!img || !img.complete || img.naturalWidth > 0) return
+    if (stage === "portrait") handlePortraitError()
+    else if (stage === "header") handleHeaderError()
+  }, [stage, handlePortraitError, handleHeaderError])
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = e.currentTarget
@@ -64,7 +73,8 @@ export function PortraitGameCard({
 
   const showDenuvo = game.denuvo === "uses"
   const launcherBadge = game.launcher ? LAUNCHER_META[game.launcher] : null
-  const hasBadges = showDenuvo || Boolean(launcherBadge)
+  const showFree = game.isFree
+  const hasBadges = showFree || showDenuvo || Boolean(launcherBadge)
 
   return (
     <Link href={`/catalog/${game.objectId}`} className="ep-card" title={game.title} onClick={onSelect}>
@@ -72,6 +82,7 @@ export function PortraitGameCard({
         <div className="ep-card-poster-clip">
           {stage === "portrait" && (
             <img
+              ref={imgRef}
               src={portraitSrc}
               alt={game.title}
               width={600}
@@ -95,6 +106,7 @@ export function PortraitGameCard({
               />
               <div className="ep-card-landscape-wrap">
                 <img
+                  ref={imgRef}
                   src={headerSrc}
                   alt={game.title}
                   loading="lazy"
@@ -126,6 +138,11 @@ export function PortraitGameCard({
 
           {hasBadges && (
             <div className="ep-card-badges">
+              {showFree && (
+                <span className="ep-badge-free" title="Gratis dimainkan di Steam">
+                  Free to Play
+                </span>
+              )}
               {showDenuvo && (
                 <span className="ep-badge-denuvo" title="Menggunakan Denuvo DRM">
                   Denuvo

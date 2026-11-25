@@ -1000,6 +1000,7 @@
   pointer-events: none;
 }
 
+.ep-badge-free,
 .ep-badge-denuvo,
 .ep-badge-launcher {
   display: inline-flex;
@@ -1013,6 +1014,12 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   line-height: 1.2;
+}
+
+.ep-badge-free {
+  background: rgba(6, 32, 24, 0.88);
+  border: 1px solid rgba(52, 211, 153, 0.56);
+  color: #6ee7b7;
 }
 
 .ep-badge-denuvo {
