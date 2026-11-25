@@ -133,8 +133,9 @@ export interface SteamGameDetail {
   launcher: ThirdPartyLauncher | null
 }
 
-export const CATALOG_PAGE_SIZE = 24
+export const CATALOG_PAGE_SIZE = 30
 export const MIN_RELEASE_YEAR = 1985
+export const DEFAULT_CATALOG_COUNT = 218000
 
 export const SORT_OPTIONS: { value: CatalogSortKey; label: string }[] = [
   { value: "popularity:desc", label: "Terpopuler" },

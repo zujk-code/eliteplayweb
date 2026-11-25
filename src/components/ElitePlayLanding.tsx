@@ -4,6 +4,7 @@ import * as React from "react"
 import HowItWorksInteractive from "./HowItWorksInteractive"
 import EcosystemHub3D from "./EcosystemHub3D"
 import BottomSections from "./BottomSections"
+import { DEFAULT_CATALOG_COUNT, formatCount } from "@/lib/steam-catalog"
 
 const beforeProcess = `
     <header id="navigation" aria-label="Header" class="navigation-section">
@@ -306,7 +307,7 @@ const afterProcess = `<section id="features" class="ep-features" data-backdrop="
 <section id="testimoni" class="ep-reviews" aria-labelledby="ep-review-title"><header><div><h2 id="ep-review-title">Kata mereka yang sudah main.</h2><p>Ulasan pemain ElitePlay dari Shopee dan Discord.</p></div></header><div class="ep-review-row" data-origin="Shopee"><h3><i aria-hidden="true"></i>Shopee</h3><div class="ep-review-window" role="region" aria-label="Ulasan pembeli Shopee" tabindex="0"><div class="ep-review-track"><div class="ep-review-set"><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-01.jpg" alt="Ulasan Shopee tentang pengalaman setelah checkout" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-02.jpg" alt="Ulasan Shopee tentang pilihan game dan respons admin" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-03.jpg" alt="Ulasan Shopee tentang koleksi game paket Standard" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-04.jpg" alt="Ulasan Shopee tentang pemasangan paket Premium" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-05.jpg" alt="Ulasan Shopee tentang panduan instalasi" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-06.jpg" alt="Ulasan Shopee tentang kecepatan respons admin" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-07.jpg" alt="Ulasan Shopee tentang layanan setelah pembelian" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-08.jpg" alt="Ulasan Shopee tentang LEGO Batman dan 007 First Light" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-09.jpg" alt="Ulasan Shopee tentang pengalaman menambahkan game ke Steam" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-10.jpg" alt="Ulasan Shopee tentang kemudahan instalasi" decoding="async" loading="lazy"></figure></div></div></div></div></div><div class="ep-review-row" data-origin="Discord"><h3><i aria-hidden="true"></i>Discord</h3><div class="ep-review-window" role="region" aria-label="Testimoni anggota Discord" tabindex="0"><div class="ep-review-track"><div class="ep-review-set"><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-11.jpg" alt="Testimoni Discord tentang dukungan admin setelah pembelian" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-12.jpg" alt="Testimoni Discord tentang pengalaman bermain Assassin’s Creed Shadows" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-13.jpg" alt="Testimoni Discord tentang bantuan untuk bermain Digimon Story Time Stranger" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-14.jpg" alt="Testimoni Discord tentang bantuan admin saat bermain Construction Simulator" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-15.jpg" alt="Testimoni Discord tentang pengalaman bermain Monster Hunter Wilds" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-16.jpg" alt="Testimoni Discord tentang keberhasilan memainkan Assassin’s Creed Shadows" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-17.jpg" alt="Testimoni Discord tentang pengalaman anggota di menu game sepak bola" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-18.jpg" alt="Testimoni Discord tentang pengalaman bermain Demon Slayer" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-19.jpg" alt="Testimoni Discord tentang tampilan karier di EA Sports FC" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-20.jpg" alt="Testimoni Discord tentang pengalaman bermain Hello Kitty Island Adventure" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-21.jpg" alt="Testimoni Discord tentang pengalaman mencoba koleksi game" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-22.jpg" alt="Testimoni Discord tentang bantuan admin pada malam hari" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-23.jpg" alt="Testimoni Discord tentang keberhasilan memainkan Digimon" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-24.jpg" alt="Testimoni Discord tentang pengalaman bermain FC 26" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-25.jpg" alt="Testimoni Discord tentang bantuan admin untuk menjalankan game" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-26.jpg" alt="Testimoni Discord tentang DLC Separate Ways di Resident Evil 4" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-27.jpg" alt="Testimoni Discord tentang bantuan admin saat menemui kendala" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-28.jpg" alt="Testimoni Discord tentang bantuan saat menjalankan Demon Slayer" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-29.jpg" alt="Testimoni Discord tentang keberhasilan memainkan Anno" decoding="async" loading="lazy"></figure></div><div class="ep-review-slot"><figure class="ep-review-shot"><img src="/images/testimonials/review-30.jpg" alt="Testimoni Discord tentang layanan admin dan tampilan menu game" decoding="async" loading="lazy"></figure></div></div></div></div></div><svg aria-hidden="true" width="0" height="0" style="position:absolute"><defs><filter id="ep-review-sharpen" color-interpolation-filters="sRGB"><feConvolveMatrix order="3" kernelMatrix="0 -0.12 0 -0.12 1.48 -0.12 0 -0.12 0" preserveAlpha="true"/></filter></defs></svg></section>
     `
 
-function activatePage(root: HTMLElement, isStatic = false) {
+function activatePage(root: HTMLElement, isStatic = false, catalogCount = DEFAULT_CATALOG_COUNT) {
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)")
     const pointer = window.matchMedia("(hover: hover) and (pointer: fine)")
     const listeners = new AbortController()
@@ -397,7 +398,7 @@ function activatePage(root: HTMLElement, isStatic = false) {
     },options))
     const counter=root.querySelector<HTMLElement>(".ef-counter")!
     const countPlan=root.querySelector(".ep-count-plan")!
-    const plans=[{label:"Standard",total:60000},{label:"Premium",total:211000}]
+    const plans=[{label:"Standard",total:60000},{label:"Premium",total:catalogCount}]
     const formatGames=new Intl.NumberFormat("id-ID")
     let countVisible=typeof IntersectionObserver==="undefined",countFrame=0,countTimer=0
     function stopGameLoop(){
@@ -1581,22 +1582,42 @@ function activatePage(root: HTMLElement, isStatic = false) {
 interface Props {
     roomySpacing?: boolean
     style?: React.CSSProperties
+    catalogCount?: number
 }
 
-export default function ElitePlayLanding({ style, roomySpacing = true }: Props) {
+export default function ElitePlayLanding({
+    style,
+    roomySpacing = true,
+    catalogCount = DEFAULT_CATALOG_COUNT,
+}: Props) {
     const root = React.useRef<HTMLDivElement>(null)
     const isStatic = false
+    const formattedExact = formatCount(catalogCount)
+    const formattedPlus = `${formattedExact}+`
+
+    const beforeHtml = React.useMemo(
+        () => beforeProcess.replaceAll("211.000+", formattedPlus),
+        [formattedPlus],
+    )
+    const afterHtml = React.useMemo(
+        () =>
+            afterProcess
+                .replaceAll("211.000+", formattedPlus)
+                .replaceAll("217.000+", formattedExact),
+        [formattedPlus, formattedExact],
+    )
+
     React.useEffect(() => {
-        if (root.current) return activatePage(root.current, isStatic)
-    }, [isStatic])
+        if (root.current) return activatePage(root.current, isStatic, catalogCount)
+    }, [isStatic, catalogCount])
     return (
         <div ref={root} data-roomy={roomySpacing ? "on" : "off"} className="zento-elite-site" style={{ ...style, width: "100%" }}>
             <main id="zento-elite-play-glass" className="artboard">
-                <div style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: beforeProcess }} />
-                <HowItWorksInteractive badgeText="" heading="Cara pakai ElitePlay" subtitle="Pilih game incaranmu di launcher, klik Add to Steam, lalu mainkan dari library pribadimu." />
-                <div style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: afterProcess }} />
+                <div style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: beforeHtml }} />
+                <HowItWorksInteractive catalogCount={catalogCount} badgeText="" heading="Cara pakai ElitePlay" subtitle="Pilih game incaranmu di launcher, klik Add to Steam, lalu mainkan dari library pribadimu." />
+                <div style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: afterHtml }} />
                 <EcosystemHub3D />
-                <BottomSections />
+                <BottomSections catalogCount={catalogCount} />
             </main>
         </div>
     )

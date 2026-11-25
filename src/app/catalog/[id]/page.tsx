@@ -244,7 +244,7 @@ export default async function GameDetailPage({ params }: { params: Params }) {
                 Save, dan Achievement.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <Link href="/#pricing" className="ep-cat-cta-btn" style={{ justifyContent: "center", height: 42 }}>
+                <Link href="/#pricing" className="ep-cat-cta-outline" style={{ height: 42 }}>
                   Lihat Paket Mulai Rp99.000
                 </Link>
                 <BackToCatalogLink

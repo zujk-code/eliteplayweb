@@ -39,7 +39,7 @@
   box-sizing: border-box;
 }
 
-.ep-cat-root a {
+:where(.ep-cat-root a) {
   color: inherit;
   text-decoration: none;
 }
@@ -51,7 +51,7 @@
 }
 
 .ep-cat-wrap {
-  width: min(1360px, calc(100% - 32px));
+  width: min(1240px, calc(100% - 36px));
   margin-inline: auto;
 }
 
@@ -164,7 +164,8 @@
   display: none;
 }
 
-.ep-cat-cta-btn {
+.ep-cat-cta-btn,
+.ep-cat-root a.ep-cat-cta-btn {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -184,6 +185,31 @@
   transform: translateY(-1px);
   filter: brightness(1.04);
   box-shadow: 0 10px 26px rgba(240, 180, 41, 0.34), inset 0 1px 0 rgba(255, 245, 195, 0.8);
+}
+
+.ep-cat-cta-outline,
+.ep-cat-root a.ep-cat-cta-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: linear-gradient(155deg, rgba(240, 180, 41, 0.14), rgba(16, 18, 25, 0.92));
+  color: var(--ep-gold-hi);
+  font-size: 13.5px;
+  font-weight: 700;
+  border: 1px solid rgba(240, 180, 41, 0.48);
+  box-shadow: inset 0 1px 0 rgba(253, 224, 104, 0.16);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  white-space: nowrap;
+}
+
+.ep-cat-cta-outline:hover {
+  transform: translateY(-1px);
+  border-color: rgba(253, 224, 104, 0.82);
+  background: linear-gradient(155deg, rgba(240, 180, 41, 0.24), rgba(20, 23, 33, 0.96));
+  box-shadow: 0 8px 22px rgba(240, 180, 41, 0.18), inset 0 1px 0 rgba(253, 224, 104, 0.28);
 }
 
 /* ---------- HERO BANNER (/catalog) ---------- */
@@ -369,32 +395,11 @@
   color: var(--ep-gold);
 }
 
-/* ---------- MAIN LAYOUT (SIDEBAR + GRID) ---------- */
+/* ---------- MAIN LAYOUT (FULL-WIDTH CENTERED GRID) ---------- */
 .ep-cat-main {
   flex: 1;
-  padding: 28px 0 72px;
-}
-
-.ep-cat-layout {
-  display: grid;
-  grid-template-columns: 264px minmax(0, 1fr);
-  gap: 28px;
-  align-items: start;
-}
-
-/* ---------- FILTER SIDEBAR ---------- */
-.ep-cat-sidebar {
-  position: sticky;
-  top: 88px;
-  max-height: calc(100dvh - 108px);
-  overflow-y: auto;
-  padding: 16px;
-  border-radius: 18px;
-  background: linear-gradient(165deg, rgba(20, 23, 33, 0.88) 0%, rgba(13, 15, 22, 0.92) 100%);
-  border: 1px solid var(--ep-line);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  padding: 26px 0 76px;
+  overflow-anchor: none;
 }
 
 .ep-cat-sidebar-head {
@@ -570,46 +575,102 @@
   gap: 6px;
 }
 
-/* ---------- TOOLBAR & ACTIVE CHIPS ---------- */
+/* ---------- HORIZONTAL FILTER TOOLBAR & ACTIVE CHIPS ---------- */
 .ep-cat-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(16, 18, 25, 0.72);
+  border: 1px solid var(--ep-line);
+}
+
+.ep-cat-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .ep-cat-count {
-  font-size: 14px;
-  color: var(--ep-body);
+  font-size: 13px;
+  color: var(--ep-soft);
+  padding-left: 6px;
 }
 
 .ep-cat-count strong {
-  color: var(--ep-text);
-  font-weight: 700;
+  color: var(--ep-body);
+  font-weight: 600;
 }
 
 .ep-cat-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.ep-cat-mobile-filter-btn {
-  display: none;
+.ep-cat-filter-btn {
+  display: inline-flex;
   align-items: center;
   gap: 7px;
   height: 38px;
-  padding: 0 14px;
+  padding: 0 13px;
   border-radius: 10px;
   border: 1px solid var(--ep-line-strong);
   background: var(--ep-surface);
   color: var(--ep-text);
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+  white-space: nowrap;
+}
+
+.ep-cat-filter-btn:hover,
+.ep-cat-filter-btn[aria-expanded="true"] {
+  border-color: var(--ep-gold-line);
+  background: var(--ep-surface-2);
+}
+
+.ep-cat-filter-btn.is-active {
+  border-color: rgba(240, 180, 41, 0.5);
+  background: rgba(240, 180, 41, 0.12);
+  color: var(--ep-gold-hi);
+}
+
+.ep-cat-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 272px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(14, 16, 24, 0.98);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(240, 180, 41, 0.28);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.78);
+  z-index: 38;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.ep-cat-popover.is-year {
+  width: 256px;
+}
+
+.ep-cat-popover-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid var(--ep-line);
 }
 
 .ep-cat-mini-input::-webkit-search-cancel-button {
@@ -741,15 +802,15 @@
   background: rgba(240, 180, 41, 0.22);
 }
 
-/* ---------- PORTRAIT 2:3 STEAM GAME GRID (Main-page berkilau specular hover) ---------- */
+/* ---------- PORTRAIT 2:3 STEAM GAME GRID (Full-width centered, berkilau hover) ---------- */
 .ep-cat-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 20px;
 }
 
 .ep-cat-grid.is-compact {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -1093,6 +1154,73 @@
 .ep-page-ellipsis {
   padding: 0 6px;
   color: var(--ep-soft);
+}
+
+.ep-page-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding: 3px 4px 3px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--ep-line);
+  background: var(--ep-surface);
+}
+
+.ep-page-jump label {
+  font-size: 12.5px;
+  color: var(--ep-soft);
+  white-space: nowrap;
+}
+
+.ep-page-jump-input {
+  width: 58px;
+  height: 30px;
+  padding: 0 7px;
+  border-radius: 7px;
+  border: 1px solid var(--ep-line);
+  background: rgba(8, 9, 12, 0.78);
+  color: var(--ep-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.ep-page-jump-input::-webkit-outer-spin-button,
+.ep-page-jump-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.ep-page-jump-input:focus {
+  border-color: var(--ep-gold-line);
+}
+
+.ep-page-jump-btn {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(240, 180, 41, 0.45);
+  background: rgba(240, 180, 41, 0.14);
+  color: var(--ep-gold-hi);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.ep-page-jump-btn:hover:not(:disabled) {
+  background: var(--ep-gold-grad);
+  border-color: rgba(253, 224, 104, 0.85);
+  color: var(--ep-ink);
+}
+
+.ep-page-jump-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 /* ---------- MOBILE DRAWER ---------- */
@@ -1608,22 +1736,20 @@
 /* ---------- RESPONSIVE ---------- */
 @media (max-width: 1120px) {
   .ep-cat-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
   }
   .ep-cat-grid.is-compact {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 920px) {
-  .ep-cat-layout {
-    grid-template-columns: 1fr;
+  .ep-cat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .ep-cat-sidebar {
-    display: none;
-  }
-  .ep-cat-mobile-filter-btn {
-    display: inline-flex;
+  .ep-cat-grid.is-compact {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .ep-det-hero-grid {
     grid-template-columns: 160px minmax(0, 1fr);
@@ -1635,6 +1761,16 @@
 }
 
 @media (max-width: 640px) {
+  .ep-cat-toolbar {
+    padding: 10px;
+  }
+  .ep-cat-count {
+    width: 100%;
+    padding-left: 2px;
+  }
+  .ep-cat-popover {
+    width: min(280px, calc(100vw - 44px));
+  }
   .ep-cat-header {
     height: 60px;
     margin-bottom: -60px;

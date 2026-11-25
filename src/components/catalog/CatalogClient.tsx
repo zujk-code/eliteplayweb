@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import {
   CATALOG_PAGE_SIZE,
   type CatalogSortKey,
@@ -73,19 +74,21 @@ export function CatalogClient({
   const [retryTick, setRetryTick] = React.useState(0)
   const [compactGrid, setCompactGrid] = React.useState(false)
   const [drawerOpen, setDrawerOpen] = React.useState(false)
-  const [sortOpen, setSortOpen] = React.useState(false)
-  const sortRef = React.useRef<HTMLDivElement | null>(null)
+  const [openMenu, setOpenMenu] = React.useState<"genre" | "year" | "sort" | null>(null)
+  const [jumpInput, setJumpInput] = React.useState("")
+  const toolbarRef = React.useRef<HTMLDivElement | null>(null)
+  const reducedMotion = useReducedMotion()
 
   // Live autocomplete suggestions
   const [suggestions, setSuggestions] = React.useState<SteamSuggestion[]>([])
   const [suggestOpen, setSuggestOpen] = React.useState(false)
   const searchShellRef = React.useRef<HTMLDivElement | null>(null)
 
-  // Sidebar collapsible sections & mini search queries
+  // Filter drawer collapsible sections & mini search queries
   const [openGroups, setOpenGroups] = React.useState({
     genres: true,
     year: true,
-    tags: false,
+    tags: true,
     developers: false,
     publishers: false,
   })
@@ -172,18 +175,29 @@ export function CatalogClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Close autocomplete & sort menu on outside click
+  // Close autocomplete, popovers, and drawer on outside click or Escape
   React.useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
       if (searchShellRef.current && !searchShellRef.current.contains(e.target as Node)) {
         setSuggestOpen(false)
       }
-      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
-        setSortOpen(false)
+      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
+        setOpenMenu(null)
+      }
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSuggestOpen(false)
+        setOpenMenu(null)
+        setDrawerOpen(false)
       }
     }
     document.addEventListener("pointerdown", onPointerDown)
-    return () => document.removeEventListener("pointerdown", onPointerDown)
+    document.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown)
+      document.removeEventListener("keydown", onKeyDown)
+    }
   }, [])
 
   // Debounced live autocomplete
@@ -371,10 +385,36 @@ export function CatalogClient({
   const endIdx = Math.min(totalCount, page * CATALOG_PAGE_SIZE)
 
   const goToPage = (nextPage: number) => {
-    if (nextPage < 1 || nextPage > totalPages || nextPage === page) return
-    setPage(nextPage)
-    gridTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    const clamped = Math.min(totalPages, Math.max(1, Math.trunc(nextPage)))
+    if (clamped === page) return
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    setPage(clamped)
+    setJumpInput("")
+    requestAnimationFrame(() => {
+      const targetEl = gridTopRef.current
+      if (!targetEl) return
+      const win = window as Window & {
+        __epScrollTo?: (target: HTMLElement | number, offset?: number) => void
+      }
+      if (typeof win.__epScrollTo === "function") {
+        win.__epScrollTo(targetEl, -84)
+      } else {
+        const y = Math.max(0, targetEl.getBoundingClientRect().top + window.scrollY - 84)
+        window.scrollTo({ top: y, behavior: "smooth" })
+      }
+    })
   }
+
+  const handleJumpSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const parsed = Number(jumpInput.trim())
+    if (!Number.isFinite(parsed) || parsed < 1) return
+    goToPage(parsed)
+  }
+
+  const gridAnimKey = `${page}|${committedQuery}|${sort}|${genres.join(",")}|${tags.join(",")}|${developers.join(",")}|${publishers.join(",")}|${yearFrom}-${yearTo}`
 
   const filteredGenres = React.useMemo(() => {
     const q = genreSearch.trim().toLowerCase()
@@ -731,44 +771,251 @@ export function CatalogClient({
         </div>
       </section>
 
-      {/* Main Catalog Content */}
+      {/* Main Catalog Content (Full-width centered grid + horizontal filter bar) */}
       <main className="ep-cat-main" ref={gridTopRef}>
-        <div className="ep-cat-wrap ep-cat-layout">
-          <aside className="ep-cat-sidebar" aria-label="Filter game">
-            {renderFilterSections()}
-          </aside>
-
+        <div className="ep-cat-wrap">
           <section aria-label="Daftar game">
-            <div className="ep-cat-toolbar">
-              <div className="ep-cat-count" aria-live="polite">
-                {loading ? (
-                  "Memuat katalog Steam..."
-                ) : totalCount > 0 ? (
-                  <>
-                    Menampilkan <strong>{formatCount(startIdx)}–{formatCount(endIdx)}</strong> dari{" "}
-                    <strong>{formatCount(totalCount)}</strong> game
-                  </>
-                ) : (
-                  "Tidak ada game yang cocok"
-                )}
+            <div className="ep-cat-toolbar" ref={toolbarRef}>
+              <div className="ep-cat-toolbar-left">
+                {/* Quick Genre Popover */}
+                <div className="ep-cat-sort-wrap">
+                  <button
+                    type="button"
+                    className={`ep-cat-filter-btn ${genres.length > 0 ? "is-active" : ""}`}
+                    aria-haspopup="dialog"
+                    aria-expanded={openMenu === "genre"}
+                    onClick={() => setOpenMenu((m) => (m === "genre" ? null : "genre"))}
+                  >
+                    <span>Genre</span>
+                    {genres.length > 0 && <span className="ep-cat-filter-badge">{genres.length}</span>}
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      style={{
+                        transform: openMenu === "genre" ? "rotate(180deg)" : "none",
+                        transition: "transform 0.16s ease",
+                      }}
+                      aria-hidden="true"
+                    >
+                      <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+
+                  <AnimatePresence>
+                    {openMenu === "genre" && (
+                      <motion.div
+                        className="ep-cat-popover"
+                        role="dialog"
+                        aria-label="Filter Genre"
+                        initial={reducedMotion ? false : { opacity: 0, y: -6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, y: -4, scale: 0.98 }}
+                        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <input
+                          type="search"
+                          className="ep-cat-mini-input"
+                          placeholder="Cari genre..."
+                          value={genreSearch}
+                          onChange={(e) => setGenreSearch(e.target.value)}
+                        />
+                        <div className="ep-cat-filter-list">
+                          {filteredGenres.map((opt) => {
+                            const val = String(opt.value)
+                            const checked = genres.includes(val)
+                            return (
+                              <label key={val} className={`ep-cat-check-row ${checked ? "is-checked" : ""}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleString(genres, setGenres, val)}
+                                />
+                                <span className="ep-cat-check-label">{opt.label}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                        {genres.length > 0 && (
+                          <div className="ep-cat-popover-foot">
+                            <span style={{ fontSize: 12, color: "var(--ep-soft)" }}>
+                              {genres.length} dipilih
+                            </span>
+                            <button
+                              type="button"
+                              className="ep-cat-reset-btn"
+                              onClick={() => {
+                                setGenres([])
+                                setPage(1)
+                              }}
+                            >
+                              Hapus genre
+                            </button>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Quick Release Year Popover */}
+                <div className="ep-cat-sort-wrap">
+                  <button
+                    type="button"
+                    className={`ep-cat-filter-btn ${parsedYear ? "is-active" : ""}`}
+                    aria-haspopup="dialog"
+                    aria-expanded={openMenu === "year"}
+                    onClick={() => setOpenMenu((m) => (m === "year" ? null : "year"))}
+                  >
+                    <span>
+                      {parsedYear
+                        ? `${parsedYear.gte ?? "..."}–${parsedYear.lte ?? "..."}`
+                        : "Tahun"}
+                    </span>
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      style={{
+                        transform: openMenu === "year" ? "rotate(180deg)" : "none",
+                        transition: "transform 0.16s ease",
+                      }}
+                      aria-hidden="true"
+                    >
+                      <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+
+                  <AnimatePresence>
+                    {openMenu === "year" && (
+                      <motion.div
+                        className="ep-cat-popover is-year"
+                        role="dialog"
+                        aria-label="Filter Tahun Rilis"
+                        initial={reducedMotion ? false : { opacity: 0, y: -6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, y: -4, scale: 0.98 }}
+                        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <div className="ep-cat-year-presets">
+                          {YEAR_PRESETS.map((preset) => {
+                            const active =
+                              yearFrom === String(preset.gte ?? "") && yearTo === String(preset.lte ?? "")
+                            return (
+                              <button
+                                key={preset.label}
+                                type="button"
+                                className={`ep-cat-year-btn ${active ? "is-active" : ""}`}
+                                onClick={() => applyYearPreset(preset.gte, preset.lte)}
+                              >
+                                {preset.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <div className="ep-cat-year-inputs">
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={1980}
+                            max={2030}
+                            className="ep-cat-mini-input"
+                            placeholder="Min (2020)"
+                            value={yearFrom}
+                            onChange={(e) => {
+                              setYearFrom(e.target.value)
+                              setPage(1)
+                            }}
+                          />
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={1980}
+                            max={2030}
+                            className="ep-cat-mini-input"
+                            placeholder="Max (2026)"
+                            value={yearTo}
+                            onChange={(e) => {
+                              setYearTo(e.target.value)
+                              setPage(1)
+                            }}
+                          />
+                        </div>
+                        {parsedYear && (
+                          <div className="ep-cat-popover-foot">
+                            <span style={{ fontSize: 12, color: "var(--ep-soft)" }}>Rentang aktif</span>
+                            <button
+                              type="button"
+                              className="ep-cat-reset-btn"
+                              onClick={() => {
+                                setYearFrom("")
+                                setYearTo("")
+                                setPage(1)
+                              }}
+                            >
+                              Reset tahun
+                            </button>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* All Filters Slide-over Drawer Button (Tags, Dev, Pub, Genre, Year) */}
+                <button
+                  type="button"
+                  className={`ep-cat-filter-btn ${tags.length + developers.length + publishers.length > 0 ? "is-active" : ""}`}
+                  onClick={() => {
+                    setOpenMenu(null)
+                    setDrawerOpen(true)
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" />
+                  </svg>
+                  <span>Semua Filter</span>
+                  {activeFilterCount > 0 && (
+                    <span className="ep-cat-filter-badge">{activeFilterCount}</span>
+                  )}
+                </button>
+
+                <div className="ep-cat-count" aria-live="polite">
+                  {loading ? (
+                    "Memuat..."
+                  ) : totalCount > 0 ? (
+                    <>
+                      <strong>{formatCount(startIdx)}–{formatCount(endIdx)}</strong> dari{" "}
+                      <strong>{formatCount(totalCount)}</strong> game
+                    </>
+                  ) : (
+                    "0 game"
+                  )}
+                </div>
               </div>
 
               <div className="ep-cat-controls">
-                <button
-                  type="button"
-                  className="ep-cat-mobile-filter-btn"
-                  onClick={() => setDrawerOpen(true)}
-                >
-                  Filter {activeFilterCount > 0 ? `(${activeFilterCount})` : ""}
-                </button>
-
-                <div className="ep-cat-sort-wrap" ref={sortRef}>
+                <div className="ep-cat-sort-wrap">
                   <button
                     type="button"
                     className="ep-cat-sort-btn"
                     aria-haspopup="listbox"
-                    aria-expanded={sortOpen}
-                    onClick={() => setSortOpen((v) => !v)}
+                    aria-expanded={openMenu === "sort"}
+                    onClick={() => setOpenMenu((m) => (m === "sort" ? null : "sort"))}
                   >
                     <span style={{ color: "var(--ep-soft)" }}>Urutkan:</span>
                     <strong>{SORT_OPTIONS.find((o) => o.value === sort)?.label ?? "Terpopuler"}</strong>
@@ -781,7 +1028,7 @@ export function CatalogClient({
                       strokeWidth="2.2"
                       style={{
                         color: "var(--ep-body)",
-                        transform: sortOpen ? "rotate(180deg)" : "none",
+                        transform: openMenu === "sort" ? "rotate(180deg)" : "none",
                         transition: "transform 0.16s ease",
                       }}
                       aria-hidden="true"
@@ -789,30 +1036,40 @@ export function CatalogClient({
                       <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </button>
-                  {sortOpen && (
-                    <div className="ep-cat-sort-menu" role="listbox" aria-label="Urutkan game">
-                      {SORT_OPTIONS.map((opt) => {
-                        const active = opt.value === sort
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            role="option"
-                            aria-selected={active}
-                            className={`ep-cat-sort-opt ${active ? "is-active" : ""}`}
-                            onClick={() => {
-                              setSort(opt.value)
-                              setPage(1)
-                              setSortOpen(false)
-                            }}
-                          >
-                            <span>{opt.label}</span>
-                            {active && <span aria-hidden="true">✓</span>}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
+                  <AnimatePresence>
+                    {openMenu === "sort" && (
+                      <motion.div
+                        className="ep-cat-sort-menu"
+                        role="listbox"
+                        aria-label="Urutkan game"
+                        initial={reducedMotion ? false : { opacity: 0, y: -6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={reducedMotion ? undefined : { opacity: 0, y: -4, scale: 0.98 }}
+                        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        {SORT_OPTIONS.map((opt) => {
+                          const active = opt.value === sort
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              role="option"
+                              aria-selected={active}
+                              className={`ep-cat-sort-opt ${active ? "is-active" : ""}`}
+                              onClick={() => {
+                                setSort(opt.value)
+                                setPage(1)
+                                setOpenMenu(null)
+                              }}
+                            >
+                              <span>{opt.label}</span>
+                              {active && <span aria-hidden="true">✓</span>}
+                            </button>
+                          )
+                        })}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 <div className="ep-cat-density" role="group" aria-label="Kepadatan grid">
@@ -899,6 +1156,11 @@ export function CatalogClient({
                     Tahun: {parsedYear.gte ?? "..."}–{parsedYear.lte ?? "..."} ×
                   </button>
                 )}
+                {activeFilterCount > 1 && (
+                  <button type="button" className="ep-cat-reset-btn" onClick={resetAllFilters}>
+                    Reset semua
+                  </button>
+                )}
               </div>
             )}
 
@@ -932,22 +1194,40 @@ export function CatalogClient({
                 </button>
               </div>
             ) : (
-              <div className={`ep-cat-grid ${compactGrid ? "is-compact" : ""}`}>
-                {games.map((game) => (
-                  <PortraitGameCard
-                    key={game.id}
-                    game={game}
-                    onSelect={() => {
-                      const savedUrl = buildUrl()
-                      window.history.replaceState(window.history.state, "", savedUrl)
-                      persistCatalogUrl(savedUrl)
-                    }}
-                  />
-                ))}
+              <div key={gridAnimKey} className={`ep-cat-grid ${compactGrid ? "is-compact" : ""}`}>
+                {games.map((game, index) => {
+                  const colStep = compactGrid ? 6 : 5
+                  return (
+                    <motion.div
+                      key={game.id}
+                      initial={reducedMotion ? false : { opacity: 0, y: 22, scale: 0.97 }}
+                      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                      viewport={{ once: true, amount: "some" }}
+                      transition={
+                        reducedMotion
+                          ? { duration: 0 }
+                          : {
+                              duration: 0.46,
+                              delay: (index % colStep) * 0.045,
+                              ease: [0.22, 1, 0.36, 1],
+                            }
+                      }
+                    >
+                      <PortraitGameCard
+                        game={game}
+                        onSelect={() => {
+                          const savedUrl = buildUrl()
+                          window.history.replaceState(window.history.state, "", savedUrl)
+                          persistCatalogUrl(savedUrl)
+                        }}
+                      />
+                    </motion.div>
+                  )
+                })}
               </div>
             )}
 
-            {/* Pagination */}
+            {/* Pagination + Jump-to-page */}
             {!error && totalPages > 1 && (
               <nav className="ep-cat-pagination" aria-label="Halaman katalog">
                 <button
@@ -984,38 +1264,74 @@ export function CatalogClient({
                 >
                   Next →
                 </button>
+
+                <form className="ep-page-jump" onSubmit={handleJumpSubmit}>
+                  <label htmlFor="ep-page-jump-input">Ke hal.</label>
+                  <input
+                    id="ep-page-jump-input"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={totalPages}
+                    placeholder={String(page)}
+                    value={jumpInput}
+                    onChange={(e) => setJumpInput(e.target.value)}
+                    className="ep-page-jump-input"
+                    aria-label={`Lompat ke halaman antara 1 sampai ${totalPages}`}
+                    disabled={loading}
+                  />
+                  <button
+                    type="submit"
+                    className="ep-page-jump-btn"
+                    disabled={loading || !jumpInput.trim()}
+                  >
+                    Go
+                  </button>
+                </form>
               </nav>
             )}
           </section>
         </div>
       </main>
 
-      {/* Mobile Filter Drawer */}
-      {drawerOpen && (
-        <div
-          className="ep-drawer-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Filter Katalog"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDrawerOpen(false)
-          }}
-        >
-          <div className="ep-drawer-panel">
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-              <button
-                type="button"
-                className="ep-cat-search-clear"
-                aria-label="Tutup filter"
-                onClick={() => setDrawerOpen(false)}
-              >
-                ×
-              </button>
-            </div>
-            {renderFilterSections()}
-          </div>
-        </div>
-      )}
+      {/* Slide-over Filter Drawer */}
+      <AnimatePresence>
+        {drawerOpen && (
+          <motion.div
+            className="ep-drawer-backdrop"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Filter Katalog"
+            initial={reducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={reducedMotion ? undefined : { opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setDrawerOpen(false)
+            }}
+          >
+            <motion.div
+              className="ep-drawer-panel"
+              initial={reducedMotion ? false : { x: 340 }}
+              animate={{ x: 0 }}
+              exit={reducedMotion ? undefined : { x: 340 }}
+              transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                <button
+                  type="button"
+                  className="ep-cat-search-clear"
+                  aria-label="Tutup filter"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  ×
+                </button>
+              </div>
+              {renderFilterSections()}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }

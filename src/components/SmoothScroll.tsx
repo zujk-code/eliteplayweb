@@ -36,6 +36,7 @@ export default function SmoothScroll({ intensity = 12 }: { intensity?: number })
     let rafId = 0
     let lastTime = 0
     let isWriting = false
+    let isProgrammatic = false
 
     const getMaxScroll = () =>
       Math.max(0, Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight || 0) - window.innerHeight)
@@ -65,6 +66,7 @@ export default function SmoothScroll({ intensity = 12 }: { intensity?: number })
       if (Math.abs(diff) < 0.35) {
         currentY = targetY
         lastTime = 0
+        isProgrammatic = false
         writeScroll(currentY)
         return
       }
@@ -92,6 +94,7 @@ export default function SmoothScroll({ intensity = 12 }: { intensity?: number })
       if (hasScrollableAncestor(e.target, dy)) return
       e.preventDefault()
 
+      isProgrammatic = false
       activeLambda = e.deltaMode === 0 && Math.abs(e.deltaY) < 42 ? trackpadLambda : wheelLambda
       const actual = window.scrollY || 0
       if (!rafId && Math.abs(actual - currentY) > 2) currentY = targetY = actual
@@ -101,7 +104,7 @@ export default function SmoothScroll({ intensity = 12 }: { intensity?: number })
     }
 
     const onNativeScroll = () => {
-      if (isWriting) return
+      if (isWriting || isProgrammatic) return
       const actual = window.scrollY || 0
       if (!rafId || Math.abs(actual - lastWrittenY) > 4) {
         currentY = targetY = lastWrittenY = actual
@@ -120,6 +123,7 @@ export default function SmoothScroll({ intensity = 12 }: { intensity?: number })
       const tag = el?.tagName
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return
       if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(e.key) && rafId) {
+        isProgrammatic = false
         cancelAnimationFrame(rafId)
         rafId = 0
         lastTime = 0
@@ -128,6 +132,7 @@ export default function SmoothScroll({ intensity = 12 }: { intensity?: number })
     }
 
     const onTouchStart = () => {
+      isProgrammatic = false
       if (rafId) {
         cancelAnimationFrame(rafId)
         rafId = 0
@@ -145,9 +150,12 @@ export default function SmoothScroll({ intensity = 12 }: { intensity?: number })
     document.documentElement.style.scrollBehavior = "auto"
     win.__epSmoothActive = true
     win.__epScrollTo = (target, offset = 0) => {
-      const rawY = typeof target === "number" ? target : target.getBoundingClientRect().top + (window.scrollY || 0) + offset
-      currentY = window.scrollY || 0
+      const actualY = window.scrollY || document.documentElement.scrollTop || 0
+      const rawY = typeof target === "number" ? target : target.getBoundingClientRect().top + actualY + offset
+      currentY = actualY
+      lastWrittenY = actualY
       targetY = Math.max(0, Math.min(getMaxScroll(), rawY))
+      isProgrammatic = true
       activeLambda = 7.4
       startLoop()
     }

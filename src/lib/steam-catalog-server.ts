@@ -4,6 +4,7 @@
 
 import {
   CATALOG_PAGE_SIZE,
+  DEFAULT_CATALOG_COUNT,
   type DenuvoStatus,
   type FacetOption,
   type HowLongToBeatRow,
@@ -30,7 +31,9 @@ const HYDRA_API_URL = process.env.HYDRA_API_URL ?? "https://hydra-api-us-east-1.
 const HYDRA_ASSETS_URL = process.env.HYDRA_EXTERNAL_RESOURCES_URL ?? "https://assets.hydralauncher.gg"
 const UPSTREAM_PACKAGE_JSON =
   "https://raw.githubusercontent.com/hydralauncher/hydra/refs/heads/main/package.json"
-const DENUVO_CURATOR_URL =
+const STEAM_DENUVO_CURATOR_BASE =
+  "https://store.steampowered.com/curator/26095454-Denuvo-Games/ajaxgetfilteredrecommendations/render/"
+const DENUVO_CURATOR_FALLBACK_URL =
   process.env.DENUVO_CURATOR_URL ??
   "https://gitlab.com/reonreol/misc-stuff/-/raw/main/denuvo_curator.html?ref_type=heads"
 
@@ -102,7 +105,7 @@ export interface DenuvoRecord {
 }
 
 let denuvoMemo: { at: number; map: Map<string, DenuvoRecord> } | null = null
-const DENUVO_MEMO_TTL = 60 * 60 * 1000
+const DENUVO_MEMO_TTL = 6 * 60 * 60 * 1000
 
 const APPID_RE = /data-ds-appid="(\d+)"/
 const NOTE_RE = /class="recommendation_desc"\s*>([\s\S]*?)<\/div>/
@@ -110,9 +113,75 @@ const DATE_RE = /class="curator_review_date"\s*>([\s\S]*?)<\/span>/
 
 function classifyDenuvoNote(note: string): DenuvoStatus {
   const lower = note.toLowerCase()
-  if (lower.includes("no longer using") || lower.includes("removed denuvo")) return "removed"
+  if (
+    lower.includes("no longer using") ||
+    lower.includes("no longer uses") ||
+    lower.includes("removed denuvo") ||
+    lower.includes("warning has been removed")
+  ) {
+    return "removed"
+  }
   if (lower.includes("uses denuvo") || lower.includes("has denuvo")) return "uses"
   return "listed"
+}
+
+function parseDenuvoHtml(html: string, map: Map<string, DenuvoRecord>) {
+  for (const block of html.split('class="recommendation"')) {
+    const appId = APPID_RE.exec(block)?.[1]
+    if (!appId || map.has(appId)) continue
+    const note = decodeHtmlEntities((NOTE_RE.exec(block)?.[1] ?? "").replace(/<[^>]*>/g, "")).trim()
+    const reviewedOn =
+      decodeHtmlEntities((DATE_RE.exec(block)?.[1] ?? "").replace(/<[^>]*>/g, "")).trim() || null
+    map.set(appId, {
+      objectId: appId,
+      status: classifyDenuvoNote(note),
+      note,
+      reviewedOn,
+    })
+  }
+}
+
+async function fetchLiveSteamCuratorDenuvo(): Promise<Map<string, DenuvoRecord> | null> {
+  try {
+    const headers = { "User-Agent": "ElitePlayWeb/1.0 (+https://eliteplay.navplay.online)" }
+    const firstRes = await fetch(
+      `${STEAM_DENUVO_CURATOR_BASE}?query=&start=0&count=100&tagids=&sort=recent&types=0`,
+      { headers, cache: "no-store", signal: AbortSignal.timeout(8000) },
+    )
+    if (!firstRes.ok) return null
+    const firstData = (await firstRes.json()) as { total_count?: number; results_html?: string }
+    const total = Math.min(1000, Math.max(0, firstData?.total_count ?? 0))
+    const map = new Map<string, DenuvoRecord>()
+    if (firstData?.results_html) parseDenuvoHtml(firstData.results_html, map)
+
+    const offsets: number[] = []
+    for (let start = 100; start < total; start += 100) offsets.push(start)
+
+    if (offsets.length > 0) {
+      const restHtml = await Promise.all(
+        offsets.map(async (start) => {
+          try {
+            const res = await fetch(
+              `${STEAM_DENUVO_CURATOR_BASE}?query=&start=${start}&count=100&tagids=&sort=recent&types=0`,
+              { headers, cache: "no-store", signal: AbortSignal.timeout(8000) },
+            )
+            if (!res.ok) return ""
+            const body = (await res.json()) as { results_html?: string }
+            return body?.results_html ?? ""
+          } catch {
+            return ""
+          }
+        }),
+      )
+      for (const html of restHtml) {
+        if (html) parseDenuvoHtml(html, map)
+      }
+    }
+
+    return map.size > 0 ? map : null
+  } catch {
+    return null
+  }
 }
 
 export async function getDenuvoMap(): Promise<Map<string, DenuvoRecord>> {
@@ -120,31 +189,24 @@ export async function getDenuvoMap(): Promise<Map<string, DenuvoRecord>> {
     return denuvoMemo.map
   }
 
+  // Primary: live Steam Curator directly from store.steampowered.com (always up-to-date).
+  const liveMap = await fetchLiveSteamCuratorDenuvo()
+  if (liveMap) {
+    denuvoMemo = { at: Date.now(), map: liveMap }
+    return liveMap
+  }
+
+  // Emergency fallback: static curator snapshot if store.steampowered.com is unreachable.
   try {
-    const res = await fetch(DENUVO_CURATOR_URL, {
+    const res = await fetch(DENUVO_CURATOR_FALLBACK_URL, {
       headers: { "User-Agent": "ElitePlayWeb/1.0 (+https://eliteplay.navplay.online)" },
       next: { revalidate: ONE_DAY },
       signal: AbortSignal.timeout(10000),
     })
     if (!res.ok) return denuvoMemo?.map ?? new Map()
 
-    const html = await res.text()
     const map = new Map<string, DenuvoRecord>()
-
-    for (const block of html.split('class="recommendation"')) {
-      const appId = APPID_RE.exec(block)?.[1]
-      if (!appId || map.has(appId)) continue
-      const note = decodeHtmlEntities((NOTE_RE.exec(block)?.[1] ?? "").replace(/<[^>]*>/g, "")).trim()
-      const reviewedOn =
-        decodeHtmlEntities((DATE_RE.exec(block)?.[1] ?? "").replace(/<[^>]*>/g, "")).trim() || null
-      map.set(appId, {
-        objectId: appId,
-        status: classifyDenuvoNote(note),
-        note,
-        reviewedOn,
-      })
-    }
-
+    parseDenuvoHtml(await res.text(), map)
     denuvoMemo = { at: Date.now(), map }
     return map
   } catch {
@@ -173,6 +235,50 @@ const STEAM_BROWSE_CACHE = new Map<string, SteamBrowseMeta>()
 const STEAM_BROWSE_TTL_MS = ONE_DAY * 1000
 const STEAM_BROWSE_MAX_CACHE = 4000
 const AUTO_GENERATED_PORTRAIT_RE = /(?:^|\/)portrait\.png(?:\?|$)/i
+
+let catalogCountMemo: { at: number; count: number } | null = null
+const CATALOG_COUNT_TTL_MS = 60 * 60 * 1000
+
+/**
+ * Total live Steam games in the catalog (cached 1h in memory, auto-refreshed
+ * whenever unfiltered /catalog searches run). Falls back safely if upstream
+ * is unreachable.
+ */
+export async function getSteamCatalogCount(): Promise<number> {
+  if (catalogCountMemo && Date.now() - catalogCountMemo.at < CATALOG_COUNT_TTL_MS) {
+    return catalogCountMemo.count
+  }
+
+  try {
+    const raw = await fetchJson<{ count?: number }>(buildHydraUrl("/catalogue/search"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "",
+        sortBy: "popularity",
+        sortOrder: "desc",
+        downloadSourceFingerprints: [],
+        tags: [],
+        publishers: [],
+        genres: [],
+        developers: [],
+        protondbSupportBadges: [],
+        deckCompatibility: [],
+        take: 5,
+        skip: 0,
+      }),
+      cache: "no-store",
+    })
+    if (typeof raw?.count === "number" && raw.count > 0) {
+      catalogCountMemo = { at: Date.now(), count: raw.count }
+      return raw.count
+    }
+  } catch {
+    // Fall back gracefully to last known count or default baseline
+  }
+
+  return catalogCountMemo?.count ?? DEFAULT_CATALOG_COUNT
+}
 
 const SV_EA_ELECTRONIC_RE = /'electronic':[\dA-D,]*C/
 const SV_EA_ARTS_RE = /'arts':[\dA-D,]*C/
@@ -392,9 +498,21 @@ export async function searchSteamCatalog(query: SteamCatalogQuery): Promise<Stea
     }
   })
 
+  const total = typeof raw?.count === "number" ? raw.count : edges.length
+  const isUnfiltered =
+    !query.title.trim() &&
+    query.genres.length === 0 &&
+    query.tags.length === 0 &&
+    query.developers.length === 0 &&
+    query.publishers.length === 0 &&
+    !query.releaseYear
+  if (isUnfiltered && total > 0) {
+    catalogCountMemo = { at: Date.now(), count: total }
+  }
+
   return {
     edges,
-    count: typeof raw?.count === "number" ? raw.count : edges.length,
+    count: total,
   }
 }
 
@@ -529,6 +647,7 @@ interface SteamStoreAppData {
   pc_requirements?: { minimum?: string; recommended?: string } | unknown[]
   release_date?: { coming_soon?: boolean; date?: string }
   header_image?: string
+  drm_notice?: string
 }
 
 interface HydraAssetsResponse {
@@ -633,7 +752,36 @@ export async function getSteamGameDetail(appId: string): Promise<SteamGameDetail
     .filter((row): row is { title: string; duration: string } => Boolean(row?.title && row?.duration))
     .slice(0, 4)
 
-  const denuvoRecord = denuvoMap.get(appId) ?? null
+  const curatorDenuvo = denuvoMap.get(appId) ?? null
+  const steamDrmRaw = store?.drm_notice ?? ""
+  const steamHasDenuvo = Boolean(steamDrmRaw && /denuvo/i.test(steamDrmRaw))
+
+  // Official Steam Store `drm_notice` is authoritative in real time:
+  // if Steam Store currently lists Denuvo -> "uses"; if Steam Store loaded and
+  // does NOT list Denuvo -> no longer active (marked "removed" if previously curated).
+  let denuvo: SteamGameDetail["denuvo"] = null
+  if (steamHasDenuvo) {
+    const cleanNote = decodeHtmlEntities(steamDrmRaw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ")).trim()
+    denuvo = { status: "uses", note: cleanNote, reviewedOn: null }
+    denuvoMemo?.map.set(appId, { objectId: appId, status: "uses", note: cleanNote, reviewedOn: null })
+  } else if (store) {
+    if (curatorDenuvo) {
+      denuvo = {
+        status: "removed",
+        note: curatorDenuvo.note,
+        reviewedOn: curatorDenuvo.reviewedOn,
+      }
+      if (curatorDenuvo.status !== "removed") {
+        denuvoMemo?.map.set(appId, { ...curatorDenuvo, status: "removed" })
+      }
+    }
+  } else if (curatorDenuvo) {
+    denuvo = {
+      status: curatorDenuvo.status,
+      note: curatorDenuvo.note,
+      reviewedOn: curatorDenuvo.reviewedOn,
+    }
+  }
 
   return {
     objectId: appId,
@@ -691,13 +839,7 @@ export async function getSteamGameDetail(appId: string): Promise<SteamGameDetail
             deckCompatibility: protonDb.deckCompatibility ?? null,
           }
         : null,
-    denuvo: denuvoRecord
-      ? {
-          status: denuvoRecord.status,
-          note: denuvoRecord.note,
-          reviewedOn: denuvoRecord.reviewedOn,
-        }
-      : null,
+    denuvo,
     launcher:
       detectLauncherFromText(store?.publishers ?? [], store?.developers ?? []) ??
       browse?.launcher ??

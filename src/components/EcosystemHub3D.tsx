@@ -84,16 +84,18 @@ const MODULES: HubModule[] = [
     },
 ]
 
+const round2 = (n: number) => Math.round(n * 100) / 100
+
 const DIAL_TICKS = Array.from({ length: 48 }, (_, i) => {
     const a = (i / 48) * Math.PI * 2
     const major = i % 6 === 0
     const r1 = major ? 96 : 103
     const r2 = 117
     return {
-        x1: 500 + Math.cos(a) * r1,
-        y1: 286 + Math.sin(a) * r1 * 0.49,
-        x2: 500 + Math.cos(a) * r2,
-        y2: 286 + Math.sin(a) * r2 * 0.49,
+        x1: round2(500 + Math.cos(a) * r1),
+        y1: round2(286 + Math.sin(a) * r1 * 0.49),
+        x2: round2(500 + Math.cos(a) * r2),
+        y2: round2(286 + Math.sin(a) * r2 * 0.49),
         major,
     }
 })
@@ -101,8 +103,8 @@ const DIAL_TICKS = Array.from({ length: 48 }, (_, i) => {
 const SOCKET_PINS = Array.from({ length: 24 }, (_, i) => {
     const a = (i / 24) * Math.PI * 2
     return {
-        x: 500 + Math.cos(a) * 127,
-        y: 286 + Math.sin(a) * 127 * 0.49,
+        x: round2(500 + Math.cos(a) * 127),
+        y: round2(286 + Math.sin(a) * 127 * 0.49),
         gold: i % 4 === 0,
     }
 })

@@ -736,6 +736,7 @@ export interface BottomSectionsProps {
     shopeeUrl?: string
     csUrl?: string
     discordUrl?: string
+    catalogCount?: number
 }
 
 export default function ElitePlayBottomSections({
@@ -743,7 +744,9 @@ export default function ElitePlayBottomSections({
     shopeeUrl = siteConfig.links.shopee,
     csUrl = "",
     discordUrl = siteConfig.links.discord,
+    catalogCount = 218000,
 }: BottomSectionsProps) {
+    const catalogPlus = `${catalogCount.toLocaleString("id-ID")}+`
     const reduced = Boolean(useReducedMotion())
     const [activeCat, setActiveCat] = React.useState<FaqCat>("all")
     const [openFaqId, setOpenFaqId] = React.useState<string>("faq-diff")
@@ -945,7 +948,7 @@ export default function ElitePlayBottomSections({
                                                     exit={reduced ? undefined : { height: 0, opacity: 0 }}
                                                     transition={{ duration: 0.28, ease: [0.22, 0.8, 0.22, 1] }}
                                                 >
-                                                    <p className="ep-ed-ans">{item.a}</p>
+                                                    <p className="ep-ed-ans">{item.a.replace("211.000+", catalogPlus)}</p>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>

@@ -969,6 +969,7 @@ export interface HowItWorksProps {
     heading?: string
     subtitle?: string
     autoLoop?: boolean
+    catalogCount?: number
 }
 
 function EnergyBridge({
@@ -1323,7 +1324,9 @@ export default function HowItWorksInteractive({
     heading = "Dari lisensi sampai main di Steam",
     subtitle = "Lihat alur aslinya secara otomatis—atau klik langsung tombol di layar launcher dan langkah di bawah dari aktivasi sampai siap main di Steam.",
     autoLoop = true,
+    catalogCount = 218000,
 }: HowItWorksProps) {
+    const catalogPlus = `${catalogCount.toLocaleString("id-ID")}+`
     const reduced = Boolean(useReducedMotion())
     const sectionRef = React.useRef<HTMLElement>(null)
     const podiumRef = React.useRef<HTMLDivElement>(null)
@@ -1549,7 +1552,7 @@ export default function HowItWorksInteractive({
 
                     <div className="ep-hiw-stage-foot">
                         <p id="z-step-detail" className="ep-hiw-caption" aria-live="polite">
-                            {scene.caption}
+                            {scene.caption.replace("211.000+", catalogPlus)}
                         </p>
                         <div className="ep-hiw-dots" role="tablist" aria-label="Pilih tampilan layar">
                             {SCENES.map((sc, i) => (
@@ -1571,6 +1574,9 @@ export default function HowItWorksInteractive({
                 <LayoutGroup id="ep-hiw-podium">
                     <div ref={podiumRef} className="ep-hiw-podium">
                         {STEP_CARDS.map((card, idx) => {
+                            const cardWithCount = card.badge.includes("211.000+")
+                                ? { ...card, badge: card.badge.replace("211.000+", catalogPlus) }
+                                : card
                             const isActive = activeStep === idx
                             const isDone = activeStep > idx
                             const bridgeActive = activeStep > idx
@@ -1578,7 +1584,7 @@ export default function HowItWorksInteractive({
                             return (
                                 <React.Fragment key={card.num}>
                                     <KineticStepCard
-                                        card={card}
+                                        card={cardWithCount}
                                         idx={idx}
                                         inView={podiumInView}
                                         isActive={isActive}
